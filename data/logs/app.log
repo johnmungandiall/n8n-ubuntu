@@ -166,3 +166,22 @@
 2025-08-05 09:35:07 - n8n_manager - ERROR - Error cleaning up resources: 'DatabaseManager' object has no attribute 'close'
 2025-08-05 09:35:07 - n8n_manager - INFO - Application shutdown completed
 2025-08-05 09:35:07 - n8n_manager - INFO - Application shutdown completed
+2025-08-05 09:41:28 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 09:41:28 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 09:41:28 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 09:41:28 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 09:41:28 - n8n_manager - INFO - Successfully connected to Docker daemon (attempt 1)
+2025-08-05 09:41:28 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 09:41:28 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 09:41:28 - n8n_manager - INFO - Starting GUI application
+2025-08-05 09:41:29 - n8n_manager - INFO - Starting simple modern GUI
+2025-08-05 09:41:41 - n8n_manager - INFO - Initiating application shutdown...
+2025-08-05 09:41:41 - n8n_manager - INFO - Waiting for thread AutoRefreshWorker to finish...
+2025-08-05 09:41:41 - n8n_manager - INFO - Auto-refresh worker stopped
+2025-08-05 09:41:41 - n8n_manager - ERROR - Error cleaning up resources: 'DatabaseManager' object has no attribute 'close'
+2025-08-05 09:41:41 - n8n_manager - INFO - Application shutdown completed
+2025-08-05 09:41:41 - n8n_manager - INFO - Shutting down application...
+2025-08-05 09:41:41 - n8n_manager - INFO - Initiating application shutdown...
+2025-08-05 09:41:41 - n8n_manager - ERROR - Error cleaning up resources: 'DatabaseManager' object has no attribute 'close'
+2025-08-05 09:41:41 - n8n_manager - INFO - Application shutdown completed
+2025-08-05 09:41:41 - n8n_manager - INFO - Application shutdown completed

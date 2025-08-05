@@ -33,7 +33,8 @@ class LogsViewerFrame(ttk.Frame):
         self.refresh_running = False
         
         self._create_widgets()
-        self.refresh_logs()
+        # Defer initial refresh to avoid blocking GUI initialization
+        self.after_idle(self.refresh_logs)
     
     def _create_widgets(self):
         """Create the logs viewer widgets"""
@@ -175,11 +176,25 @@ class LogsViewerFrame(ttk.Frame):
         """Auto-refresh worker thread"""
         while self.refresh_running and self.auto_refresh:
             try:
-                time.sleep(2)  # Refresh every 2 seconds
+                # Use smaller sleep intervals for more responsive shutdown
+                for _ in range(20):  # 2 seconds in 0.1 second intervals
+                    if not self.refresh_running or not self.auto_refresh:
+                        break
+                    time.sleep(0.1)
+                
                 if self.refresh_running and self.auto_refresh:
-                    self.after(0, self.refresh_logs)
+                    try:
+                        self.after(0, self._safe_refresh_logs)
+                    except tk.TclError:
+                        # Widget has been destroyed
+                        break
             except Exception as e:
                 self.logger.error(f"Error in auto-refresh worker: {e}")
+                # Wait before retrying to prevent rapid error loops
+                for _ in range(50):  # 5 second wait
+                    if not self.refresh_running or not self.auto_refresh:
+                        break
+                    time.sleep(0.1)
     
     def refresh_logs(self):
         """Refresh the log display"""
@@ -416,6 +431,17 @@ class LogsViewerFrame(ttk.Frame):
             
         except Exception as e:
             self.logger.error(f"Error setting instance {instance_id}: {e}")
+    
+    def _safe_refresh_logs(self):
+        """Safe wrapper for refreshing logs"""
+        try:
+            if self.refresh_running and self.winfo_exists():
+                self.refresh_logs()
+        except (tk.TclError, AttributeError):
+            # Widget destroyed or not available
+            pass
+        except Exception as e:
+            self.logger.error(f"Error in safe logs refresh: {e}")
     
     def cleanup(self):
         """Cleanup when frame is destroyed"""

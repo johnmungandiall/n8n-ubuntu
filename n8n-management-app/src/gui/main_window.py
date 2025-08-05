@@ -17,6 +17,7 @@ from core.docker_manager import get_docker_manager
 from gui.instance_manager import InstanceManagerFrame
 from gui.logs_viewer import LogsViewerFrame
 from gui.performance_monitor import PerformanceMonitorFrame
+from utils.gui_utils import DeferredInitializer, safe_gui_operation
 
 
 class MainWindow:
@@ -44,7 +45,8 @@ class MainWindow:
         self._create_content_area()
         self._create_status_bar()
         self._setup_window_state()
-        self._start_auto_refresh()
+        # Defer auto-refresh start to avoid blocking GUI initialization
+        self.root.after_idle(self._start_auto_refresh)
     
     def _create_window(self):
         """Create the main window"""
@@ -181,8 +183,8 @@ class MainWindow:
         )
         self.docker_status_label.pack(side=tk.RIGHT, padx=10)
         
-        # Update Docker status
-        self._update_docker_status()
+        # Defer Docker status update to avoid blocking
+        self.root.after(1000, self._update_docker_status)
     
     def _create_content_area(self):
         """Create main content area with tabs"""
@@ -228,12 +230,22 @@ class MainWindow:
         )
         self.instance_count_label.pack(side=tk.RIGHT, padx=5, pady=2)
         
-        self._update_status()
+        # Defer status update to avoid blocking
+        self.root.after(500, self._update_status)
     
     def _setup_window_state(self):
         """Setup window state persistence"""
-        # TODO: Load and save window position/size from config
-        pass
+        # Load saved window state
+        try:
+            saved_geometry = self.config.get('ui.window_geometry')
+            if saved_geometry:
+                self.root.geometry(saved_geometry)
+            
+            saved_state = self.config.get('ui.window_state')
+            if saved_state == 'maximized':
+                self.root.state('zoomed')  # Windows/Linux
+        except Exception as e:
+            self.logger.warning(f"Failed to restore window state: {e}")
     
     def _start_auto_refresh(self):
         """Start automatic refresh thread"""
@@ -247,23 +259,37 @@ class MainWindow:
         
         while self.refresh_running:
             try:
-                time.sleep(interval)
+                # Use smaller sleep intervals to allow for more responsive shutdown
+                for _ in range(int(interval * 10)):  # Sleep in 0.1 second intervals
+                    if not self.refresh_running:
+                        break
+                    time.sleep(0.1)
+                
                 if self.refresh_running:
-                    # Schedule GUI update on main thread
-                    self.root.after(0, self._update_status)
-                    self.root.after(0, self._update_docker_status)
-                    
-                    # Update active tab content
-                    current_tab = self.notebook.select()
-                    if current_tab:
-                        tab_text = self.notebook.tab(current_tab, "text")
-                        if tab_text == "Instances":
-                            self.root.after(0, self.instance_manager.refresh_instances)
-                        elif tab_text == "Logs":
-                            self.root.after(0, self.logs_viewer.refresh_logs)
+                    # Schedule GUI update on main thread with timeout protection
+                    try:
+                        self.root.after(0, self._safe_update_status)
+                        self.root.after(0, self._safe_update_docker_status)
+                        
+                        # Update active tab content
+                        current_tab = self.notebook.select()
+                        if current_tab:
+                            tab_text = self.notebook.tab(current_tab, "text")
+                            if tab_text == "Instances" and self.instance_manager:
+                                self.root.after(0, self._safe_refresh_instances)
+                            elif tab_text == "Logs" and self.logs_viewer:
+                                self.root.after(0, self._safe_refresh_logs)
+                    except tk.TclError:
+                        # Window has been destroyed
+                        break
                             
             except Exception as e:
                 self.logger.error(f"Error in auto-refresh worker: {e}")
+                # Wait before retrying to prevent rapid error loops
+                for _ in range(50):  # 5 second wait
+                    if not self.refresh_running:
+                        break
+                    time.sleep(0.1)
     
     def _update_status(self):
         """Update status bar information"""
@@ -288,6 +314,50 @@ class MainWindow:
         except Exception as e:
             self.logger.error(f"Error checking Docker status: {e}")
             self.docker_status_label.config(text="Docker: Error", style='Error.TLabel')
+    
+    def _safe_update_status(self):
+        """Safe wrapper for updating status"""
+        try:
+            if self.refresh_running and self.root.winfo_exists():
+                self._update_status()
+        except (tk.TclError, AttributeError):
+            # Window destroyed or not available
+            pass
+        except Exception as e:
+            self.logger.error(f"Error in safe status update: {e}")
+    
+    def _safe_update_docker_status(self):
+        """Safe wrapper for updating Docker status"""
+        try:
+            if self.refresh_running and self.root.winfo_exists():
+                self._update_docker_status()
+        except (tk.TclError, AttributeError):
+            # Window destroyed or not available
+            pass
+        except Exception as e:
+            self.logger.error(f"Error in safe Docker status update: {e}")
+    
+    def _safe_refresh_instances(self):
+        """Safe wrapper for refreshing instances"""
+        try:
+            if self.refresh_running and self.root.winfo_exists() and self.instance_manager:
+                self.instance_manager.refresh_instances()
+        except (tk.TclError, AttributeError):
+            # Window destroyed or not available
+            pass
+        except Exception as e:
+            self.logger.error(f"Error in safe instance refresh: {e}")
+    
+    def _safe_refresh_logs(self):
+        """Safe wrapper for refreshing logs"""
+        try:
+            if self.refresh_running and self.root.winfo_exists() and self.logs_viewer:
+                self.logs_viewer.refresh_logs()
+        except (tk.TclError, AttributeError):
+            # Window destroyed or not available
+            pass
+        except Exception as e:
+            self.logger.error(f"Error in safe logs refresh: {e}")
     
     def _on_tab_changed(self, event):
         """Handle tab change events"""
@@ -334,8 +404,88 @@ class MainWindow:
             filetypes=[("YAML files", "*.yaml"), ("JSON files", "*.json"), ("All files", "*.*")]
         )
         if file_path:
-            # TODO: Implement configuration import
-            self.set_status(f"Configuration import not yet implemented")
+            try:
+                import yaml
+                import json
+                from pathlib import Path
+                
+                file_ext = Path(file_path).suffix.lower()
+                
+                with open(file_path, 'r') as f:
+                    if file_ext == '.yaml' or file_ext == '.yml':
+                        config_data = yaml.safe_load(f)
+                    elif file_ext == '.json':
+                        config_data = json.load(f)
+                    else:
+                        # Try to detect format
+                        content = f.read()
+                        try:
+                            config_data = json.loads(content)
+                        except:
+                            config_data = yaml.safe_load(content)
+                
+                # Validate configuration structure
+                if not isinstance(config_data, dict):
+                    raise ValueError("Configuration must be a dictionary/object")
+                
+                # Import instances if present
+                imported_count = 0
+                if 'instances' in config_data:
+                    for instance_config in config_data['instances']:
+                        try:
+                            name = instance_config.get('name')
+                            if not name:
+                                continue
+                            
+                            # Check if instance already exists
+                            existing = self.n8n_manager.db.get_instance_by_name(name)
+                            if existing:
+                                result = messagebox.askyesnocancel(
+                                    "Instance Exists",
+                                    f"Instance '{name}' already exists. Overwrite?",
+                                )
+                                if result is None:  # Cancel
+                                    break
+                                elif not result:  # No, skip
+                                    continue
+                                else:  # Yes, delete existing
+                                    self.n8n_manager.delete_instance(existing['id'], True)
+                            
+                            # Create instance
+                            success, message, instance_id = self.n8n_manager.create_instance(
+                                name, instance_config
+                            )
+                            if success:
+                                imported_count += 1
+                            else:
+                                self.logger.warning(f"Failed to import instance '{name}': {message}")
+                                
+                        except Exception as e:
+                            self.logger.error(f"Error importing instance: {e}")
+                            continue
+                
+                # Import application settings if present
+                if 'app_settings' in config_data:
+                    try:
+                        app_settings = config_data['app_settings']
+                        # Update configuration manager with new settings
+                        for key, value in app_settings.items():
+                            self.config.set(key, value)
+                        self.config.save()
+                    except Exception as e:
+                        self.logger.warning(f"Failed to import app settings: {e}")
+                
+                messagebox.showinfo(
+                    "Import Complete",
+                    f"Successfully imported {imported_count} instances from {Path(file_path).name}"
+                )
+                self.set_status(f"Imported {imported_count} instances from configuration")
+                self.refresh_instance_list()
+                
+            except Exception as e:
+                error_msg = f"Failed to import configuration: {e}"
+                messagebox.showerror("Import Error", error_msg)
+                self.set_status(error_msg)
     
     def _export_config(self):
         """Export configuration"""
@@ -345,8 +495,96 @@ class MainWindow:
             filetypes=[("YAML files", "*.yaml"), ("JSON files", "*.json"), ("All files", "*.*")]
         )
         if file_path:
-            # TODO: Implement configuration export
-            self.set_status(f"Configuration export not yet implemented")
+            try:
+                import yaml
+                import json
+                import time
+                from pathlib import Path
+                
+                # Gather configuration data
+                config_data = {
+                    'export_info': {
+                        'app_name': self.config.get('app.name', 'n8n Management App'),
+                        'app_version': self.config.get('app.version', '1.0.0'),
+                        'export_date': time.strftime('%Y-%m-%d %H:%M:%S'),
+                        'total_instances': 0
+                    },
+                    'instances': [],
+                    'app_settings': {}
+                }
+                
+                # Export instances
+                instances = self.n8n_manager.list_instances()
+                for instance in instances:
+                    instance_config = {
+                        'name': instance['name'],
+                        'image': instance['image'],
+                        'port': instance.get('port'),
+                        'status': instance['status'],
+                        'health_status': instance.get('health_status'),
+                        'created_at': instance['created_at']
+                    }
+                    
+                    # Add configuration details
+                    try:
+                        if instance.get('config'):
+                            instance_config['config'] = json.loads(instance['config'])
+                        if instance.get('environment_vars'):
+                            instance_config['environment_vars'] = json.loads(instance['environment_vars'])
+                        if instance.get('resource_limits'):
+                            instance_config['resource_limits'] = json.loads(instance['resource_limits'])
+                        if instance.get('volumes'):
+                            instance_config['volumes'] = json.loads(instance['volumes'])
+                        if instance.get('networks'):
+                            instance_config['networks'] = json.loads(instance['networks'])
+                    except:
+                        pass  # Skip malformed JSON
+                    
+                    config_data['instances'].append(instance_config)
+                
+                config_data['export_info']['total_instances'] = len(instances)
+                
+                # Export application settings
+                config_data['app_settings'] = {
+                    'docker': {
+                        'default_image': self.config.get('docker.default_image'),
+                        'default_port_range': self.config.get('docker.default_port_range'),
+                        'default_memory_limit': self.config.get('docker.default_memory_limit'),
+                        'default_cpu_limit': self.config.get('docker.default_cpu_limit'),
+                        'network_name': self.config.get('docker.network_name')
+                    },
+                    'ui': {
+                        'theme': self.config.get('ui.theme'),
+                        'auto_refresh_interval': self.config.get('ui.auto_refresh_interval'),
+                        'window_width': self.config.get('ui.window_width'),
+                        'window_height': self.config.get('ui.window_height')
+                    },
+                    'logging': {
+                        'level': self.config.get('logging.level'),
+                        'file_enabled': self.config.get('logging.file_enabled'),
+                        'console_enabled': self.config.get('logging.console_enabled')
+                    }
+                }
+                
+                # Write configuration file
+                file_ext = Path(file_path).suffix.lower()
+                
+                with open(file_path, 'w') as f:
+                    if file_ext == '.yaml' or file_ext == '.yml':
+                        yaml.dump(config_data, f, default_flow_style=False, indent=2)
+                    else:  # Default to JSON
+                        json.dump(config_data, f, indent=2, default=str)
+                
+                messagebox.showinfo(
+                    "Export Complete",
+                    f"Successfully exported {len(instances)} instances to {Path(file_path).name}"
+                )
+                self.set_status(f"Exported {len(instances)} instances to configuration file")
+                
+            except Exception as e:
+                error_msg = f"Failed to export configuration: {e}"
+                messagebox.showerror("Export Error", error_msg)
+                self.set_status(error_msg)
     
     def _show_docker_info(self):
         """Show Docker information dialog"""
@@ -469,7 +707,19 @@ Features:
                 self.performance_monitor.cleanup()
             
             # Save window state
-            # TODO: Save window position and size to config
+            try:
+                geometry = self.root.geometry()
+                self.config.set('ui.window_geometry', geometry)
+                
+                state = self.root.state()
+                if state in ['zoomed', 'maximized']:
+                    self.config.set('ui.window_state', 'maximized')
+                else:
+                    self.config.set('ui.window_state', 'normal')
+                
+                self.config.save()
+            except Exception as e:
+                self.logger.warning(f"Failed to save window state: {e}")
             
             self.logger.info("Closing application")
             self.root.quit()

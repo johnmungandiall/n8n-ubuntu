@@ -16,7 +16,7 @@ from core.logger import setup_logger, get_logger
 from core.config_manager import setup_config, get_config
 from core.database import setup_database, get_database
 from core.docker_manager import get_docker_manager
-from gui.main_window import MainWindow
+from gui.simple_modern_window import SimpleModernWindow as MainWindow
 
 
 class N8nManagementApp:
@@ -69,18 +69,19 @@ class N8nManagementApp:
     def run_gui(self) -> int:
         """Run the GUI application"""
         try:
+            # Initialize core components first
             if not self.initialize():
                 return 1
-            
-            # Create and run main window
-            self.main_window = MainWindow()
-            self.running = True
             
             # Setup signal handlers for graceful shutdown
             signal.signal(signal.SIGINT, self._signal_handler)
             signal.signal(signal.SIGTERM, self._signal_handler)
             
             self.logger.info("Starting GUI application")
+            
+            # Start main window directly without startup screen for now
+            self.main_window = MainWindow()
+            self.running = True
             self.main_window.run()
             
             return 0

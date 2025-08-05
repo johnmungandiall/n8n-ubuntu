@@ -13,6 +13,18 @@ from docker.models.volumes import Volume
 from docker.errors import DockerException, APIError, NotFound
 from .logger import get_logger
 from .config_manager import get_config
+try:
+    from utils.timeout_wrapper import docker_timeout, TimeoutError
+except ImportError:
+    # Fallback if timeout wrapper is not available
+    class TimeoutError(Exception):
+        pass
+    
+    class MockTimeout:
+        def wrap_operation(self, operation, func, *args, **kwargs):
+            return func(*args, **kwargs)
+    
+    docker_timeout = MockTimeout()
 
 
 class DockerManager:
@@ -40,9 +52,8 @@ class DockerManager:
         try:
             if self.client is None:
                 self._connect()
-            self.client.ping()
-            return True
-        except Exception as e:
+            return docker_timeout.wrap_operation('ping', self.client.ping)
+        except (TimeoutError, Exception) as e:
             self.logger.error(f"Docker daemon not available: {e}")
             return False
     
@@ -308,10 +319,15 @@ class DockerManager:
             
             cpu_usage = 0.0
             if cpu_stats and precpu_stats:
-                cpu_delta = cpu_stats['cpu_usage']['total_usage'] - precpu_stats['cpu_usage']['total_usage']
-                system_delta = cpu_stats['system_cpu_usage'] - precpu_stats['system_cpu_usage']
-                if system_delta > 0:
-                    cpu_usage = (cpu_delta / system_delta) * len(cpu_stats['cpu_usage']['percpu_usage']) * 100.0
+                cpu_delta = cpu_stats.get('cpu_usage', {}).get('total_usage', 0) - precpu_stats.get('cpu_usage', {}).get('total_usage', 0)
+                system_delta = cpu_stats.get('system_cpu_usage', 0) - precpu_stats.get('system_cpu_usage', 0)
+                if system_delta > 0 and cpu_delta >= 0:
+                    # Use online_cpus if available, otherwise fall back to percpu_usage length or 1
+                    num_cpus = cpu_stats.get('online_cpus', 1)
+                    if num_cpus == 0:
+                        percpu_usage = cpu_stats.get('cpu_usage', {}).get('percpu_usage', [])
+                        num_cpus = len(percpu_usage) if percpu_usage else 1
+                    cpu_usage = (cpu_delta / system_delta) * num_cpus * 100.0
             
             # Memory usage
             memory_stats = stats.get('memory_stats', {})

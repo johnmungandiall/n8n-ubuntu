@@ -35,7 +35,8 @@ class PerformanceMonitorFrame(ttk.Frame):
         self.max_history_points = 100
         
         self._create_widgets()
-        self._start_monitoring()
+        # Defer monitoring start to avoid blocking GUI initialization
+        self.after_idle(self._start_monitoring)
     
     def _create_widgets(self):
         """Create the performance monitor widgets"""
@@ -318,15 +319,28 @@ class PerformanceMonitorFrame(ttk.Frame):
         while self.monitoring_active:
             try:
                 # Update metrics
-                self.after(0, self._update_metrics)
+                try:
+                    self.after(0, self._safe_update_metrics)
+                except tk.TclError:
+                    # Widget has been destroyed
+                    break
                 
-                # Sleep for the specified interval
+                # Sleep for the specified interval using smaller increments
                 interval = float(self.interval_var.get())
-                time.sleep(interval)
+                sleep_increments = int(interval * 10)  # 0.1 second increments
+                
+                for _ in range(sleep_increments):
+                    if not self.monitoring_active:
+                        break
+                    time.sleep(0.1)
                 
             except Exception as e:
                 self.logger.error(f"Error in monitoring worker: {e}")
-                time.sleep(5)  # Wait before retrying
+                # Wait before retrying to prevent rapid error loops
+                for _ in range(50):  # 5 second wait
+                    if not self.monitoring_active:
+                        break
+                    time.sleep(0.1)
     
     def _update_metrics(self):
         """Update all metrics displays"""
@@ -632,6 +646,17 @@ class PerformanceMonitorFrame(ttk.Frame):
             error_msg = f"Error exporting metrics: {e}"
             self.logger.error(error_msg)
             messagebox.showerror("Error", error_msg)
+    
+    def _safe_update_metrics(self):
+        """Safe wrapper for updating metrics"""
+        try:
+            if self.monitoring_active and self.winfo_exists():
+                self._update_metrics()
+        except (tk.TclError, AttributeError):
+            # Widget destroyed or not available
+            pass
+        except Exception as e:
+            self.logger.error(f"Error in safe metrics update: {e}")
     
     def cleanup(self):
         """Cleanup when frame is destroyed"""

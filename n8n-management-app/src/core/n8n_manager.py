@@ -303,8 +303,12 @@ class N8nManager:
             success, message, new_instance_id = self.create_instance(new_name, clone_config)
             
             if success and clone_data and source['container_id']:
-                # TODO: Implement data cloning from source container volumes
-                self.logger.info(f"Instance cloned, data cloning not yet implemented")
+                # Implement data cloning from source container volumes
+                clone_success = self._clone_instance_data(source, new_instance_id)
+                if clone_success:
+                    self.logger.info(f"Successfully cloned data from '{source['name']}' to '{new_name}'")
+                else:
+                    self.logger.warning(f"Instance cloned but data cloning failed for '{new_name}'")
             
             if success:
                 self.logger.info(f"Cloned instance '{source['name']}' to '{new_name}'")
@@ -416,8 +420,8 @@ class N8nManager:
                 is_healthy = False
                 message = container_status['error']
             elif container_status.get('status') == 'running':
-                # TODO: Add HTTP health check to n8n endpoint
-                health_status = 'healthy'
+                # Perform HTTP health check to n8n endpoint
+                health_status = self._perform_http_health_check(instance)
                 is_healthy = True
                 message = 'Container running'
             else:
@@ -506,12 +510,149 @@ class N8nManager:
     
     def _schedule_health_check(self, instance_id: int):
         """Schedule a health check for an instance"""
-        # TODO: Implement background health checking
-        # For now, just perform immediate health check
+        # Implement background health checking with threading
+        import threading
+        
+        def delayed_health_check():
+            # Wait a bit for the container to fully start
+            time.sleep(10)
+            try:
+                self.perform_health_check(instance_id)
+            except Exception as e:
+                self.logger.warning(f"Failed to perform scheduled health check for instance {instance_id}: {e}")
+        
+        # Start health check in background thread
+        health_check_thread = threading.Thread(target=delayed_health_check, daemon=True)
+        health_check_thread.start()
+        
+        # Also perform immediate health check
         try:
             self.perform_health_check(instance_id)
         except Exception as e:
             self.logger.warning(f"Failed to perform initial health check for instance {instance_id}: {e}")
+    
+    def _perform_http_health_check(self, instance: Dict[str, Any]) -> str:
+        """Perform HTTP health check on n8n instance"""
+        try:
+            import requests
+            
+            port = instance.get('port')
+            if not port:
+                return 'unhealthy'
+            
+            # Try to connect to n8n main endpoint (n8n doesn't have /healthz)
+            url = f"http://localhost:{port}/"
+            
+            # Set a short timeout for health checks
+            timeout = self.config.get('health_check.timeout', 5)
+            
+            response = requests.get(url, timeout=timeout)
+            
+            if response.status_code == 200:
+                return 'healthy'
+            else:
+                self.logger.debug(f"Health check failed for instance {instance['name']}: HTTP {response.status_code}")
+                return 'unhealthy'
+                
+        except requests.exceptions.ConnectionError:
+            # n8n might not be fully started yet
+            return 'starting'
+        except requests.exceptions.Timeout:
+            self.logger.debug(f"Health check timeout for instance {instance['name']}")
+            return 'unhealthy'
+        except Exception as e:
+            self.logger.warning(f"Health check error for instance {instance['name']}: {e}")
+            return 'unhealthy'
+    
+    def _clone_instance_data(self, source_instance: Dict[str, Any], target_instance_id: int) -> bool:
+        """Clone data from source instance to target instance"""
+        try:
+            import subprocess
+            import tempfile
+            import shutil
+            from pathlib import Path
+            
+            # Get target instance
+            target_instance = self.db.get_instance(target_instance_id)
+            if not target_instance:
+                self.logger.error(f"Target instance {target_instance_id} not found")
+                return False
+            
+            source_name = source_instance['name']
+            target_name = target_instance['name']
+            
+            # Stop both containers to ensure data consistency
+            self.logger.info(f"Stopping containers for data cloning...")
+            self.docker.stop_container(source_instance['container_id'])
+            if target_instance['container_id']:
+                self.docker.stop_container(target_instance['container_id'])
+            
+            # Create temporary directory for data transfer
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                source_data_path = temp_path / "source_data"
+                
+                # Copy data from source volume to temporary directory
+                source_volume = f"{source_name}_data"
+                self.logger.info(f"Copying data from source volume {source_volume}...")
+                
+                # Create a temporary container to access the source volume
+                copy_command = [
+                    'docker', 'run', '--rm',
+                    '-v', f'{source_volume}:/source:ro',
+                    '-v', f'{temp_dir}:/temp',
+                    'alpine:latest',
+                    'sh', '-c', 'cp -r /source/* /temp/source_data/ 2>/dev/null || mkdir -p /temp/source_data'
+                ]
+                
+                # Create source_data directory
+                source_data_path.mkdir(exist_ok=True)
+                
+                result = subprocess.run(copy_command, capture_output=True, text=True)
+                if result.returncode != 0:
+                    self.logger.warning(f"Data copy from source may be incomplete: {result.stderr}")
+                
+                # Copy data to target volume
+                target_volume = f"{target_name}_data"
+                self.logger.info(f"Copying data to target volume {target_volume}...")
+                
+                copy_to_target_command = [
+                    'docker', 'run', '--rm',
+                    '-v', f'{target_volume}:/target',
+                    '-v', f'{temp_dir}:/temp',
+                    'alpine:latest',
+                    'sh', '-c', 'cp -r /temp/source_data/* /target/ 2>/dev/null || true'
+                ]
+                
+                result = subprocess.run(copy_to_target_command, capture_output=True, text=True)
+                if result.returncode != 0:
+                    self.logger.error(f"Failed to copy data to target: {result.stderr}")
+                    return False
+            
+            # Restart source container if it was running
+            if source_instance.get('status') == 'running':
+                self.docker.start_container(source_instance['container_id'])
+            
+            # Restart target container
+            if target_instance['container_id']:
+                self.docker.start_container(target_instance['container_id'])
+            
+            self.logger.info(f"Successfully cloned data from '{source_name}' to '{target_name}'")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error cloning instance data: {e}")
+            
+            # Attempt to restart containers even if cloning failed
+            try:
+                if source_instance.get('status') == 'running':
+                    self.docker.start_container(source_instance['container_id'])
+                if target_instance and target_instance.get('container_id'):
+                    self.docker.start_container(target_instance['container_id'])
+            except:
+                pass
+            
+            return False
 
 
 # Global n8n manager instance

@@ -1,0 +1,111 @@
+2025-08-05 06:25:44 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 06:25:44 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 06:25:44 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 06:25:44 - n8n_manager - INFO - Applied migration 1.0.0
+2025-08-05 06:25:44 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 06:25:44 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 06:25:44 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 06:25:44 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 06:27:37 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 06:27:37 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 06:27:37 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 06:27:37 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 06:27:37 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 06:27:37 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 06:27:37 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 06:27:38 - n8n_manager - INFO - Starting GUI application
+2025-08-05 06:27:38 - n8n_manager - INFO - Starting GUI main loop
+2025-08-05 06:27:53 - n8n_manager - ERROR - Docker API error creating container johnx: 409 Client Error for http+docker://localhost/v1.51/containers/create?name=johnx: Conflict ("Conflict. The container name "/johnx" is already in use by container "858b6ff7a5e58299a054e01e6e9c6651c21645f5094acc27fe4971087d53fa99". You have to remove (or rename) that container to be able to reuse that name.")
+2025-08-05 06:27:59 - n8n_manager - ERROR - Docker API error creating container johnx: 409 Client Error for http+docker://localhost/v1.51/containers/create?name=johnx: Conflict ("Conflict. The container name "/johnx" is already in use by container "858b6ff7a5e58299a054e01e6e9c6651c21645f5094acc27fe4971087d53fa99". You have to remove (or rename) that container to be able to reuse that name.")
+2025-08-05 06:28:03 - n8n_manager - INFO - Closing application
+2025-08-05 06:28:03 - n8n_manager - INFO - Shutting down application...
+2025-08-05 06:28:03 - n8n_manager - ERROR - Error during shutdown: can't invoke "destroy" command: application has been destroyed
+2025-08-05 07:28:55 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 07:28:55 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 07:28:55 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 07:28:55 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 07:28:55 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 07:28:55 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 07:28:55 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 07:28:56 - n8n_manager - INFO - Starting GUI application
+2025-08-05 07:28:56 - n8n_manager - INFO - Starting GUI main loop
+2025-08-05 07:29:05 - n8n_manager - INFO - Created volume johnxx_data
+2025-08-05 07:29:05 - n8n_manager - INFO - Created container johnxx with ID 544f9f0ee5ed7eee65637eba6a64ef47c5f229778b2e477224388dffb7493c88
+2025-08-05 07:29:08 - n8n_manager - INFO - Started container johnxx
+2025-08-05 07:29:09 - n8n_manager - INFO - Started instance 'johnxx'
+2025-08-05 07:29:09 - n8n_manager - INFO - Successfully created n8n instance 'johnxx' (ID: 3)
+2025-08-05 07:29:43 - n8n_manager - WARNING - Failed to save window state: 'ConfigManager' object has no attribute 'save'
+2025-08-05 07:29:43 - n8n_manager - INFO - Closing application
+2025-08-05 07:29:43 - n8n_manager - INFO - Shutting down application...
+2025-08-05 07:29:43 - n8n_manager - ERROR - Error during shutdown: can't invoke "destroy" command: application has been destroyed
+2025-08-05 07:29:52 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 07:29:52 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 07:29:52 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 07:29:52 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 07:29:52 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 07:29:52 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 07:29:52 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 07:29:59 - n8n_manager - ERROR - Error in monitoring worker: main thread is not in main loop
+2025-08-05 07:30:00 - n8n_manager - INFO - Starting GUI application
+2025-08-05 07:30:00 - n8n_manager - INFO - Starting GUI main loop
+2025-08-05 07:30:23 - n8n_manager - WARNING - Failed to save window state: 'ConfigManager' object has no attribute 'save'
+2025-08-05 07:30:23 - n8n_manager - INFO - Closing application
+2025-08-05 07:30:23 - n8n_manager - INFO - Shutting down application...
+2025-08-05 07:30:23 - n8n_manager - ERROR - Error during shutdown: can't invoke "destroy" command: application has been destroyed
+2025-08-05 07:36:08 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 07:36:08 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 07:36:08 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 07:36:08 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 07:36:08 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 07:36:08 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 07:36:08 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 07:36:15 - n8n_manager - ERROR - Error in monitoring worker: main thread is not in main loop
+2025-08-05 07:36:16 - n8n_manager - INFO - Starting GUI application
+2025-08-05 07:36:16 - n8n_manager - INFO - Starting GUI main loop
+2025-08-05 07:36:23 - n8n_manager - INFO - Stopped container johnxx
+2025-08-05 07:36:23 - n8n_manager - INFO - Stopped instance 'johnxx'
+2025-08-05 07:36:23 - n8n_manager - INFO - Stopped container johnxx
+2025-08-05 07:36:23 - n8n_manager - INFO - Stopped instance 'johnxx'
+2025-08-05 07:36:28 - n8n_manager - INFO - Stopped container johnxx
+2025-08-05 07:36:28 - n8n_manager - INFO - Stopped instance 'johnxx'
+2025-08-05 07:36:49 - n8n_manager - INFO - Started container johnxx
+2025-08-05 07:36:50 - n8n_manager - INFO - Started instance 'johnxx'
+2025-08-05 07:37:10 - n8n_manager - WARNING - Failed to save window state: 'ConfigManager' object has no attribute 'save'
+2025-08-05 07:37:10 - n8n_manager - INFO - Closing application
+2025-08-05 07:37:10 - n8n_manager - INFO - Shutting down application...
+2025-08-05 07:37:10 - n8n_manager - ERROR - Error during shutdown: can't invoke "destroy" command: application has been destroyed
+2025-08-05 07:44:59 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 07:44:59 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 07:44:59 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 07:44:59 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 07:44:59 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 07:44:59 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 07:44:59 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 07:45:02 - n8n_manager - ERROR - Error running GUI application: 'MainWindow' object has no attribute 'after_idle'
+2025-08-05 07:51:56 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 07:51:56 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 07:51:56 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 07:51:56 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 07:51:56 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 07:51:56 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 07:51:56 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 07:51:56 - n8n_manager - INFO - Starting GUI application
+2025-08-05 07:51:57 - n8n_manager - INFO - Starting GUI main loop
+2025-08-05 07:52:35 - n8n_manager - WARNING - Failed to save window state: 'ConfigManager' object has no attribute 'save'
+2025-08-05 07:52:35 - n8n_manager - INFO - Closing application
+2025-08-05 07:52:35 - n8n_manager - INFO - Shutting down application...
+2025-08-05 07:52:35 - n8n_manager - ERROR - Error during shutdown: can't invoke "destroy" command: application has been destroyed
+2025-08-05 08:07:22 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 08:07:22 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 08:07:22 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 08:07:22 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 08:07:22 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 08:07:22 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 08:07:22 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 08:07:22 - n8n_manager - INFO - Starting GUI application
+2025-08-05 08:07:22 - n8n_manager - INFO - Starting simple modern GUI
+2025-08-05 08:07:31 - n8n_manager - INFO - Created volume Johnx_data
+2025-08-05 08:07:31 - n8n_manager - INFO - Created container Johnx with ID 2d832c5dca735de46848e026b28fb744a44e179b386d85989df650cc85fddba7
+2025-08-05 08:07:33 - n8n_manager - INFO - Started container Johnx
+2025-08-05 08:07:35 - n8n_manager - INFO - Started instance 'Johnx'
+2025-08-05 08:07:35 - n8n_manager - INFO - Successfully created n8n instance 'Johnx' (ID: 4)

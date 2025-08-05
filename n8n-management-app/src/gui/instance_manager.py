@@ -28,7 +28,8 @@ class InstanceManagerFrame(ttk.Frame):
         self.instance_data = {}
         
         self._create_widgets()
-        self.refresh_instances()
+        # Defer initial refresh to avoid blocking GUI initialization
+        self.after_idle(self.refresh_instances)
     
     def _create_widgets(self):
         """Create the instance manager widgets"""
@@ -150,9 +151,14 @@ class InstanceManagerFrame(ttk.Frame):
             for item in self.instance_tree.get_children():
                 self.instance_tree.delete(item)
             
-            # Get instances from manager
-            instances = self.n8n_manager.list_instances()
-            self.instance_data = {str(instance['id']): instance for instance in instances}
+            # Get instances from manager with timeout protection
+            try:
+                instances = self.n8n_manager.list_instances()
+                self.instance_data = {str(instance['id']): instance for instance in instances}
+            except Exception as e:
+                self.logger.error(f"Error getting instances: {e}")
+                self.main_window.set_status(f"Error getting instances: {e}")
+                return
             
             # Populate tree
             for instance in instances:
@@ -506,8 +512,11 @@ Network TX: {usage.get('network_tx_bytes', 0) / (1024**2):.1f} MB
             messagebox.showwarning("No Selection", "Please select an instance to configure.")
             return
         
-        # TODO: Implement instance configuration dialog
-        messagebox.showinfo("Not Implemented", "Instance configuration dialog not yet implemented.")
+        instance = self.instance_data[self.selected_instance]
+        dialog = ConfigureInstanceDialog(self, self.main_window, instance)
+        if dialog.result:
+            self.refresh_instances()
+            self.main_window.set_status(f"Instance '{instance['name']}' configuration updated")
 
 
 class CreateInstanceDialog:
@@ -674,3 +683,390 @@ NODE_ENV=production"""
                 env_vars[key.strip()] = value.strip()
         
         return env_vars
+
+
+class ConfigureInstanceDialog:
+    """Dialog for configuring existing instances"""
+    
+    def __init__(self, parent, main_window, instance):
+        self.parent = parent
+        self.main_window = main_window
+        self.instance = instance
+        self.logger = get_logger()
+        self.config = get_config()
+        self.n8n_manager = get_n8n_manager()
+        
+        self.result = None
+        self.dialog = None
+        
+        self._create_dialog()
+    
+    def _create_dialog(self):
+        """Create the configuration dialog window"""
+        self.dialog = tk.Toplevel(self.parent)
+        self.dialog.title(f"Configure Instance: {self.instance['name']}")
+        self.dialog.geometry("600x500")
+        self.dialog.transient(self.main_window.root)
+        self.dialog.grab_set()
+        
+        # Center dialog
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() - self.dialog.winfo_width()) // 2
+        y = (self.dialog.winfo_screenheight() - self.dialog.winfo_height()) // 2
+        self.dialog.geometry(f"+{x}+{y}")
+        
+        # Create notebook for tabs
+        notebook = ttk.Notebook(self.dialog)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Basic Configuration Tab
+        basic_frame = ttk.Frame(notebook)
+        notebook.add(basic_frame, text="Basic")
+        self._create_basic_tab(basic_frame)
+        
+        # Environment Variables Tab
+        env_frame = ttk.Frame(notebook)
+        notebook.add(env_frame, text="Environment")
+        self._create_environment_tab(env_frame)
+        
+        # Resource Limits Tab
+        resources_frame = ttk.Frame(notebook)
+        notebook.add(resources_frame, text="Resources")
+        self._create_resources_tab(resources_frame)
+        
+        # Volumes Tab
+        volumes_frame = ttk.Frame(notebook)
+        notebook.add(volumes_frame, text="Volumes")
+        self._create_volumes_tab(volumes_frame)
+        
+        # Buttons
+        button_frame = ttk.Frame(self.dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        ttk.Button(button_frame, text="Cancel", command=self._cancel).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(button_frame, text="Apply", command=self._apply).pack(side=tk.RIGHT)
+        
+        # Bind keys
+        self.dialog.bind('<Return>', lambda e: self._apply())
+        self.dialog.bind('<Escape>', lambda e: self._cancel())
+        
+        # Wait for dialog
+        self.dialog.wait_window()
+    
+    def _create_basic_tab(self, parent):
+        """Create basic configuration tab"""
+        # Instance name (read-only)
+        ttk.Label(parent, text="Instance Name:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
+        name_label = ttk.Label(parent, text=self.instance['name'], style='Title.TLabel')
+        name_label.grid(row=0, column=1, sticky='w', pady=5, padx=(10, 0))
+        
+        # Docker image
+        ttk.Label(parent, text="Docker Image:").grid(row=1, column=0, sticky='w', pady=5, padx=5)
+        self.image_var = tk.StringVar(value=self.instance.get('image', ''))
+        ttk.Entry(parent, textvariable=self.image_var, width=40).grid(row=1, column=1, sticky='ew', pady=5, padx=(10, 0))
+        
+        # Port
+        ttk.Label(parent, text="Port:").grid(row=2, column=0, sticky='w', pady=5, padx=5)
+        self.port_var = tk.StringVar(value=str(self.instance.get('port', '')))
+        port_entry = ttk.Entry(parent, textvariable=self.port_var, width=10)
+        port_entry.grid(row=2, column=1, sticky='w', pady=5, padx=(10, 0))
+        
+        # Status info (read-only)
+        ttk.Label(parent, text="Status:").grid(row=3, column=0, sticky='w', pady=5, padx=5)
+        status_label = ttk.Label(parent, text=self.instance.get('status', 'unknown'))
+        status_label.grid(row=3, column=1, sticky='w', pady=5, padx=(10, 0))
+        
+        # Health status (read-only)
+        ttk.Label(parent, text="Health:").grid(row=4, column=0, sticky='w', pady=5, padx=5)
+        health_label = ttk.Label(parent, text=self.instance.get('health_status', 'unknown'))
+        health_label.grid(row=4, column=1, sticky='w', pady=5, padx=(10, 0))
+        
+        # Created date (read-only)
+        ttk.Label(parent, text="Created:").grid(row=5, column=0, sticky='w', pady=5, padx=5)
+        created_label = ttk.Label(parent, text=self.instance.get('created_at', 'unknown'))
+        created_label.grid(row=5, column=1, sticky='w', pady=5, padx=(10, 0))
+        
+        parent.grid_columnconfigure(1, weight=1)
+    
+    def _create_environment_tab(self, parent):
+        """Create environment variables tab"""
+        ttk.Label(parent, text="Environment Variables:", style='Title.TLabel').pack(anchor='w', pady=(5, 10))
+        
+        # Text widget for environment variables
+        env_frame = ttk.Frame(parent)
+        env_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        self.env_text = tk.Text(env_frame, height=20, width=60)
+        env_scrollbar = ttk.Scrollbar(env_frame, orient=tk.VERTICAL, command=self.env_text.yview)
+        self.env_text.configure(yscrollcommand=env_scrollbar.set)
+        
+        self.env_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        env_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Load current environment variables
+        try:
+            env_vars = json.loads(self.instance.get('environment_vars', '{}'))
+            env_text = '\n'.join([f"{k}={v}" for k, v in env_vars.items()])
+            self.env_text.insert(1.0, env_text)
+        except:
+            self.env_text.insert(1.0, "# Format: KEY=value\n# One per line")
+        
+        # Help text
+        help_label = ttk.Label(parent, text="Format: KEY=value (one per line)")
+        help_label.pack(anchor='w', pady=(5, 0))
+    
+    def _create_resources_tab(self, parent):
+        """Create resource limits tab"""
+        # Memory limit
+        ttk.Label(parent, text="Memory Limit:").grid(row=0, column=0, sticky='w', pady=5, padx=5)
+        memory_frame = ttk.Frame(parent)
+        memory_frame.grid(row=0, column=1, sticky='ew', pady=5, padx=(10, 0))
+        
+        try:
+            resource_limits = json.loads(self.instance.get('resource_limits', '{}'))
+            current_memory = resource_limits.get('memory', '512m')
+        except:
+            current_memory = '512m'
+        
+        self.memory_var = tk.StringVar(value=current_memory)
+        ttk.Entry(memory_frame, textvariable=self.memory_var, width=10).pack(side=tk.LEFT)
+        ttk.Label(memory_frame, text="(e.g., 512m, 1g, 2048m)").pack(side=tk.LEFT, padx=(5, 0))
+        
+        # CPU limit
+        ttk.Label(parent, text="CPU Limit:").grid(row=1, column=0, sticky='w', pady=5, padx=5)
+        cpu_frame = ttk.Frame(parent)
+        cpu_frame.grid(row=1, column=1, sticky='ew', pady=5, padx=(10, 0))
+        
+        try:
+            current_cpu = resource_limits.get('cpu', '0.5')
+        except:
+            current_cpu = '0.5'
+        
+        self.cpu_var = tk.StringVar(value=current_cpu)
+        ttk.Entry(cpu_frame, textvariable=self.cpu_var, width=10).pack(side=tk.LEFT)
+        ttk.Label(cpu_frame, text="(e.g., 0.5, 1.0, 2.0)").pack(side=tk.LEFT, padx=(5, 0))
+        
+        # Restart policy
+        ttk.Label(parent, text="Restart Policy:").grid(row=2, column=0, sticky='w', pady=5, padx=5)
+        self.restart_var = tk.StringVar(value="unless-stopped")
+        restart_combo = ttk.Combobox(parent, textvariable=self.restart_var, 
+                                   values=["no", "always", "unless-stopped", "on-failure"],
+                                   state="readonly", width=15)
+        restart_combo.grid(row=2, column=1, sticky='w', pady=5, padx=(10, 0))
+        
+        parent.grid_columnconfigure(1, weight=1)
+    
+    def _create_volumes_tab(self, parent):
+        """Create volumes configuration tab"""
+        ttk.Label(parent, text="Volume Mounts:", style='Title.TLabel').pack(anchor='w', pady=(5, 10))
+        
+        # Volume list
+        volume_frame = ttk.Frame(parent)
+        volume_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Treeview for volumes
+        columns = ('host_path', 'container_path', 'mode')
+        self.volume_tree = ttk.Treeview(volume_frame, columns=columns, show='headings', height=8)
+        
+        self.volume_tree.heading('host_path', text='Host Path')
+        self.volume_tree.heading('container_path', text='Container Path')
+        self.volume_tree.heading('mode', text='Mode')
+        
+        self.volume_tree.column('host_path', width=200)
+        self.volume_tree.column('container_path', width=200)
+        self.volume_tree.column('mode', width=80)
+        
+        volume_scrollbar = ttk.Scrollbar(volume_frame, orient=tk.VERTICAL, command=self.volume_tree.yview)
+        self.volume_tree.configure(yscrollcommand=volume_scrollbar.set)
+        
+        self.volume_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        volume_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Load current volumes
+        try:
+            volumes = json.loads(self.instance.get('volumes', '{}'))
+            for host_path, config in volumes.items():
+                if isinstance(config, dict):
+                    container_path = config.get('bind', '')
+                    mode = config.get('mode', 'rw')
+                else:
+                    container_path = config
+                    mode = 'rw'
+                self.volume_tree.insert('', 'end', values=(host_path, container_path, mode))
+        except:
+            # Add default n8n data volume
+            default_volume = f"{self.instance['name']}_data"
+            self.volume_tree.insert('', 'end', values=(default_volume, '/home/node/.n8n', 'rw'))
+        
+        # Volume management buttons
+        volume_buttons = ttk.Frame(parent)
+        volume_buttons.pack(fill=tk.X, padx=5, pady=5)
+        
+        ttk.Button(volume_buttons, text="Add Volume", command=self._add_volume).pack(side=tk.LEFT, padx=2)
+        ttk.Button(volume_buttons, text="Remove Volume", command=self._remove_volume).pack(side=tk.LEFT, padx=2)
+    
+    def _add_volume(self):
+        """Add a new volume mount"""
+        dialog = VolumeDialog(self.dialog, "Add Volume Mount")
+        if dialog.result:
+            host_path, container_path, mode = dialog.result
+            self.volume_tree.insert('', 'end', values=(host_path, container_path, mode))
+    
+    def _remove_volume(self):
+        """Remove selected volume mount"""
+        selection = self.volume_tree.selection()
+        if selection:
+            self.volume_tree.delete(selection[0])
+        else:
+            messagebox.showwarning("No Selection", "Please select a volume to remove.")
+    
+    def _apply(self):
+        """Apply configuration changes"""
+        try:
+            # Prepare configuration updates
+            config_updates = {}
+            
+            # Basic configuration
+            if self.image_var.get().strip() != self.instance.get('image', ''):
+                config_updates['image'] = self.image_var.get().strip()
+            
+            if self.port_var.get().strip():
+                try:
+                    port = int(self.port_var.get().strip())
+                    if port != self.instance.get('port'):
+                        config_updates['port'] = port
+                except ValueError:
+                    messagebox.showerror("Error", "Invalid port number.")
+                    return
+            
+            # Environment variables
+            env_vars = self._parse_environment_vars()
+            config_updates['environment_vars'] = json.dumps(env_vars)
+            
+            # Resource limits
+            resource_limits = {
+                'memory': self.memory_var.get().strip(),
+                'cpu': self.cpu_var.get().strip()
+            }
+            config_updates['resource_limits'] = json.dumps(resource_limits)
+            
+            # Volumes
+            volumes = {}
+            for item in self.volume_tree.get_children():
+                values = self.volume_tree.item(item, 'values')
+                host_path, container_path, mode = values
+                volumes[host_path] = {
+                    'bind': container_path,
+                    'mode': mode
+                }
+            config_updates['volumes'] = json.dumps(volumes)
+            
+            # Apply updates
+            success, message = self.n8n_manager.update_instance_config(
+                self.instance['id'], config_updates
+            )
+            
+            if success:
+                self.result = True
+                self.dialog.destroy()
+            else:
+                messagebox.showerror("Update Failed", message)
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to update configuration: {e}")
+    
+    def _cancel(self):
+        """Cancel configuration changes"""
+        self.dialog.destroy()
+    
+    def _parse_environment_vars(self) -> Dict[str, str]:
+        """Parse environment variables from text"""
+        env_vars = {}
+        text = self.env_text.get(1.0, tk.END).strip()
+        
+        for line in text.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                env_vars[key.strip()] = value.strip()
+        
+        return env_vars
+
+
+class VolumeDialog:
+    """Dialog for adding/editing volume mounts"""
+    
+    def __init__(self, parent, title="Volume Mount"):
+        self.parent = parent
+        self.result = None
+        self.dialog = None
+        
+        self._create_dialog(title)
+    
+    def _create_dialog(self, title):
+        """Create the volume dialog"""
+        self.dialog = tk.Toplevel(self.parent)
+        self.dialog.title(title)
+        self.dialog.geometry("400x200")
+        self.dialog.transient(self.parent)
+        self.dialog.grab_set()
+        
+        # Center dialog
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() - self.dialog.winfo_width()) // 2
+        y = (self.dialog.winfo_screenheight() - self.dialog.winfo_height()) // 2
+        self.dialog.geometry(f"+{x}+{y}")
+        
+        # Main frame
+        main_frame = ttk.Frame(self.dialog)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Host path
+        ttk.Label(main_frame, text="Host Path:").grid(row=0, column=0, sticky='w', pady=5)
+        self.host_var = tk.StringVar()
+        ttk.Entry(main_frame, textvariable=self.host_var, width=40).grid(row=0, column=1, sticky='ew', pady=5, padx=(10, 0))
+        
+        # Container path
+        ttk.Label(main_frame, text="Container Path:").grid(row=1, column=0, sticky='w', pady=5)
+        self.container_var = tk.StringVar()
+        ttk.Entry(main_frame, textvariable=self.container_var, width=40).grid(row=1, column=1, sticky='ew', pady=5, padx=(10, 0))
+        
+        # Mode
+        ttk.Label(main_frame, text="Mode:").grid(row=2, column=0, sticky='w', pady=5)
+        self.mode_var = tk.StringVar(value="rw")
+        mode_combo = ttk.Combobox(main_frame, textvariable=self.mode_var, 
+                                values=["rw", "ro"], state="readonly", width=10)
+        mode_combo.grid(row=2, column=1, sticky='w', pady=5, padx=(10, 0))
+        
+        main_frame.grid_columnconfigure(1, weight=1)
+        
+        # Buttons
+        button_frame = ttk.Frame(self.dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        ttk.Button(button_frame, text="Cancel", command=self._cancel).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(button_frame, text="OK", command=self._ok).pack(side=tk.RIGHT)
+        
+        # Bind keys
+        self.dialog.bind('<Return>', lambda e: self._ok())
+        self.dialog.bind('<Escape>', lambda e: self._cancel())
+        
+        # Wait for dialog
+        self.dialog.wait_window()
+    
+    def _ok(self):
+        """OK button handler"""
+        host_path = self.host_var.get().strip()
+        container_path = self.container_var.get().strip()
+        mode = self.mode_var.get()
+        
+        if not host_path or not container_path:
+            messagebox.showerror("Error", "Both host path and container path are required.")
+            return
+        
+        self.result = (host_path, container_path, mode)
+        self.dialog.destroy()
+    
+    def _cancel(self):
+        """Cancel button handler"""
+        self.dialog.destroy()

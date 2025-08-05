@@ -5,6 +5,9 @@ Handles Docker daemon communication and container lifecycle management
 
 import docker
 import time
+import socket
+import threading
+from contextlib import contextmanager
 from typing import Dict, List, Optional, Any, Tuple
 from docker.models.containers import Container
 from docker.models.images import Image
@@ -27,6 +30,37 @@ except ImportError:
     docker_timeout = MockTimeout()
 
 
+class PortManager:
+    """Thread-safe port management with atomic reservation"""
+    
+    def __init__(self):
+        self._reserved_ports = set()
+        self._lock = threading.Lock()
+    
+    @contextmanager
+    def reserve_port(self, start_port, end_port):
+        """Atomically reserve an available port"""
+        with self._lock:
+            for port in range(start_port, end_port + 1):
+                if port not in self._reserved_ports and self._is_port_bindable(port):
+                    self._reserved_ports.add(port)
+                    try:
+                        yield port
+                    finally:
+                        self._reserved_ports.discard(port)
+                    return
+            raise RuntimeError(f"No available ports in range {start_port}-{end_port}")
+    
+    def _is_port_bindable(self, port):
+        """Test if port can actually be bound"""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind(('localhost', port))
+                return True
+        except OSError:
+            return False
+
+
 class DockerManager:
     """Manages Docker operations for n8n instances"""
     
@@ -34,18 +68,25 @@ class DockerManager:
         self.logger = get_logger()
         self.config = get_config()
         self.client = None
+        self.port_manager = PortManager()
         self._connect()
     
-    def _connect(self):
-        """Establish connection to Docker daemon"""
-        try:
-            self.client = docker.from_env()
-            # Test connection
-            self.client.ping()
-            self.logger.info("Successfully connected to Docker daemon")
-        except DockerException as e:
-            self.logger.error(f"Failed to connect to Docker daemon: {e}")
-            raise
+    def _connect(self, max_retries=5, base_delay=1.0):
+        """Establish connection to Docker daemon with retry logic"""
+        for attempt in range(max_retries):
+            try:
+                self.client = docker.from_env()
+                self.client.ping()
+                self.logger.info(f"Successfully connected to Docker daemon (attempt {attempt + 1})")
+                return
+            except DockerException as e:
+                if attempt == max_retries - 1:
+                    self.logger.error(f"Failed to connect to Docker daemon after {max_retries} attempts: {e}")
+                    raise
+                
+                delay = base_delay * (2 ** attempt)  # exponential backoff
+                self.logger.warning(f"Docker connection attempt {attempt + 1} failed, retrying in {delay}s: {e}")
+                time.sleep(delay)
     
     def is_docker_available(self) -> bool:
         """Check if Docker daemon is available and responsive"""

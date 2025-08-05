@@ -1,12 +1,14 @@
 """
 Simple Modern Window for n8n Management App
-Clean, working interface that doesn't hang
+Clean, working interface with thread safety and proper resource cleanup
 """
 
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import threading
 import time
+import queue
+import re
 from typing import Dict, Any, Optional
 
 from core.logger import get_logger
@@ -15,8 +17,36 @@ from core.n8n_manager import get_n8n_manager
 from core.docker_manager import get_docker_manager
 
 
+class InputValidator:
+    """Input validation utility class"""
+    
+    @staticmethod
+    def validate_instance_name(name: str) -> tuple[bool, str]:
+        """Validate instance name according to business rules"""
+        if not name:
+            return False, "Instance name cannot be empty"
+        
+        name = name.strip()
+        
+        if len(name) < 3:
+            return False, "Instance name must be at least 3 characters long"
+        
+        if len(name) > 50:
+            return False, "Instance name cannot exceed 50 characters"
+        
+        if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$', name):
+            return False, "Instance name can only contain letters, numbers, hyphens, and underscores, and must start with a letter or number"
+        
+        # Check for reserved names
+        reserved_names = {'docker', 'system', 'admin', 'root', 'n8n'}
+        if name.lower() in reserved_names:
+            return False, f"'{name}' is a reserved name and cannot be used"
+        
+        return True, "Valid instance name"
+
+
 class SimpleModernWindow:
-    """Simple, reliable main application window"""
+    """Simple, reliable main application window with thread safety"""
     
     def __init__(self):
         self.logger = get_logger()
@@ -24,6 +54,12 @@ class SimpleModernWindow:
         self.n8n_manager = get_n8n_manager()
         self.docker_manager = get_docker_manager()
         
+        # Thread-safe communication
+        self.update_queue = queue.Queue()
+        self.shutdown_event = threading.Event()
+        self.background_threads = []
+        
+        # GUI components
         self.root = None
         self.main_frame = None
         self.status_var = None
@@ -36,8 +72,23 @@ class SimpleModernWindow:
         self._create_window()
         self._create_layout()
         
+        # Start queue processor
+        self.root.after(100, self._process_update_queue)
+        
         # Defer initialization to prevent blocking
         self.root.after_idle(self._start_auto_refresh)
+    
+    def _process_update_queue(self):
+        """Process GUI updates from background threads"""
+        try:
+            while True:
+                update_func = self.update_queue.get_nowait()
+                update_func()
+        except queue.Empty:
+            pass
+        finally:
+            if self.refresh_running:
+                self.root.after(100, self._process_update_queue)
     
     def _create_window(self):
         """Create the main window"""
@@ -402,21 +453,45 @@ class SimpleModernWindow:
             messagebox.showerror("Error", f"Failed to open instance: {e}")
     
     def _new_instance(self):
-        """Create new instance"""
-        # Simple dialog
-        name = tk.simpledialog.askstring("New Instance", "Enter instance name:")
-        if name and name.strip():
-            try:
-                self.set_status(f"Creating instance '{name}'...")
+        """Create new instance with proper validation"""
+        while True:
+            name = tk.simpledialog.askstring(
+                "New Instance", 
+                "Enter instance name:\n(3-50 characters, letters/numbers/hyphens/underscores only)"
+            )
+            
+            if not name:  # User cancelled
+                return
+            
+            is_valid, message = InputValidator.validate_instance_name(name)
+            
+            if is_valid:
+                # Check if name already exists
+                try:
+                    existing = self.n8n_manager.db.get_instance_by_name(name.strip())
+                    if existing:
+                        messagebox.showerror("Name Conflict", f"Instance '{name}' already exists. Please choose a different name.")
+                        continue
+                except:
+                    pass  # If check fails, proceed anyway
                 
-                def create_worker():
-                    success, message, instance_id = self.n8n_manager.create_instance(name.strip())
-                    self.root.after(0, lambda: self._handle_create_result(success, message, name))
-                
-                threading.Thread(target=create_worker, daemon=True).start()
-                
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to create instance: {e}")
+                try:
+                    self.set_status(f"Creating instance '{name}'...")
+                    
+                    def create_worker():
+                        success, message, instance_id = self.n8n_manager.create_instance(name.strip())
+                        self.update_queue.put(lambda: self._handle_create_result(success, message, name))
+                    
+                    thread = threading.Thread(target=create_worker, daemon=False, name=f"CreateInstance-{name}")
+                    self.background_threads.append(thread)
+                    thread.start()
+                    break
+                    
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to create instance: {e}")
+                    break
+            else:
+                messagebox.showerror("Invalid Name", message)
     
     def _handle_create_result(self, success, message, name):
         """Handle create result"""
@@ -435,35 +510,37 @@ class SimpleModernWindow:
         self.set_status("Refresh completed")
     
     def _start_auto_refresh(self):
-        """Start automatic refresh thread"""
+        """Start automatic refresh thread with proper tracking"""
         self.refresh_running = True
-        self.refresh_thread = threading.Thread(target=self._auto_refresh_worker, daemon=True)
+        self.refresh_thread = threading.Thread(
+            target=self._auto_refresh_worker, 
+            daemon=False,  # Don't use daemon threads for proper cleanup
+            name="AutoRefreshWorker"
+        )
+        self.background_threads.append(self.refresh_thread)
         self.refresh_thread.start()
     
     def _auto_refresh_worker(self):
-        """Background worker for auto-refresh"""
-        while self.refresh_running:
+        """Background worker with proper shutdown handling"""
+        while self.refresh_running and not self.shutdown_event.is_set():
             try:
-                # Sleep in small intervals for responsive shutdown
-                for _ in range(100):  # 10 seconds in 0.1s intervals
-                    if not self.refresh_running:
-                        break
-                    time.sleep(0.1)
+                # Use event.wait() instead of time.sleep() for responsive shutdown
+                if self.shutdown_event.wait(timeout=10):  # 10-second refresh interval
+                    break
                 
                 if self.refresh_running:
-                    # Schedule GUI update
                     try:
-                        self.root.after(0, self._safe_update_stats)
-                    except tk.TclError:
-                        break
+                        self.update_queue.put(self._safe_update_stats)
+                    except Exception as e:
+                        self.logger.error(f"Error queuing stats update: {e}")
                         
             except Exception as e:
                 self.logger.error(f"Error in auto-refresh worker: {e}")
-                # Wait before retrying
-                for _ in range(50):
-                    if not self.refresh_running:
-                        break
-                    time.sleep(0.1)
+                # Wait before retrying, but check for shutdown
+                if self.shutdown_event.wait(timeout=5):
+                    break
+        
+        self.logger.info("Auto-refresh worker stopped")
     
     def _safe_update_stats(self):
         """Safe wrapper for updating stats"""
@@ -476,21 +553,58 @@ class SimpleModernWindow:
             self.logger.error(f"Error in safe stats update: {e}")
     
     def _on_closing(self):
-        """Handle window closing"""
+        """Handle window closing with proper cleanup"""
         try:
-            # Stop auto-refresh
-            self.refresh_running = False
+            self.logger.info("Initiating application shutdown...")
             
-            self.logger.info("Closing application")
-            self.root.quit()
-            self.root.destroy()
+            # Signal all threads to stop
+            self.refresh_running = False
+            self.shutdown_event.set()
+            
+            # Wait for background threads to finish (with timeout)
+            for thread in self.background_threads:
+                if thread.is_alive():
+                    self.logger.info(f"Waiting for thread {thread.name} to finish...")
+                    thread.join(timeout=5.0)
+                    
+                    if thread.is_alive():
+                        self.logger.warning(f"Thread {thread.name} did not stop gracefully")
+            
+            # Close any open resources
+            self._cleanup_resources()
+            
+            self.logger.info("Application shutdown completed")
             
         except Exception as e:
-            self.logger.error(f"Error during window closing: {e}")
+            self.logger.error(f"Error during shutdown: {e}")
+        finally:
+            # Ensure GUI is destroyed even if cleanup fails
+            try:
+                self.root.quit()
+                self.root.destroy()
+            except:
+                pass
+    
+    def _cleanup_resources(self):
+        """Clean up application resources"""
+        try:
+            # Close database connections
+            if hasattr(self, 'n8n_manager') and self.n8n_manager:
+                if hasattr(self.n8n_manager, 'db') and self.n8n_manager.db:
+                    self.n8n_manager.db.close()
+            
+            # Close Docker connections
+            if hasattr(self, 'docker_manager') and self.docker_manager:
+                if hasattr(self.docker_manager, 'client') and self.docker_manager.client:
+                    self.docker_manager.client.close()
+            
+        except Exception as e:
+            self.logger.error(f"Error cleaning up resources: {e}")
     
     def set_status(self, message: str):
         """Set status bar message"""
-        self.status_var.set(message)
+        if self.status_var:
+            self.status_var.set(message)
         self.logger.debug(f"Status: {message}")
     
     def run(self):
@@ -505,6 +619,4 @@ class SimpleModernWindow:
     def destroy(self):
         """Destroy the window"""
         if self.root:
-            self.refresh_running = False
-            self.root.quit()
-            self.root.destroy()
+            self._on_closing()

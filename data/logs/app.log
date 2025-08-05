@@ -130,3 +130,39 @@
 2025-08-05 08:32:14 - n8n_manager - INFO - Closing application
 2025-08-05 08:32:14 - n8n_manager - INFO - Shutting down application...
 2025-08-05 08:32:14 - n8n_manager - ERROR - Error during shutdown: can't invoke "destroy" command: application has been destroyed
+2025-08-05 08:43:49 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 08:43:49 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 08:43:49 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 08:43:49 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 08:43:49 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 08:43:49 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 08:43:49 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 08:43:49 - n8n_manager - INFO - Starting GUI application
+2025-08-05 08:43:49 - n8n_manager - INFO - Starting simple modern GUI
+2025-08-05 08:45:09 - n8n_manager - INFO - Closing application
+2025-08-05 08:45:09 - n8n_manager - INFO - Shutting down application...
+2025-08-05 08:45:09 - n8n_manager - ERROR - Error during shutdown: can't invoke "destroy" command: application has been destroyed
+2025-08-05 09:33:51 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 09:33:51 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 09:33:51 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 09:33:51 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 09:33:51 - n8n_manager - INFO - Successfully connected to Docker daemon (attempt 1)
+2025-08-05 09:33:51 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 09:33:51 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 09:33:51 - n8n_manager - INFO - Starting GUI application
+2025-08-05 09:33:52 - n8n_manager - INFO - Starting simple modern GUI
+2025-08-05 09:34:07 - n8n_manager - INFO - Created volume John3_data
+2025-08-05 09:34:07 - n8n_manager - INFO - Created container John3 with ID cfa59c6dab5e7c5a54983d7de028435b32a6692a1dcb5c6f8f676c2d01fdbbca
+2025-08-05 09:34:09 - n8n_manager - INFO - Started container John3
+2025-08-05 09:34:10 - n8n_manager - INFO - Started instance 'John3'
+2025-08-05 09:34:10 - n8n_manager - INFO - Successfully created n8n instance 'John3' (ID: 5)
+2025-08-05 09:35:07 - n8n_manager - INFO - Initiating application shutdown...
+2025-08-05 09:35:07 - n8n_manager - INFO - Waiting for thread AutoRefreshWorker to finish...
+2025-08-05 09:35:07 - n8n_manager - INFO - Auto-refresh worker stopped
+2025-08-05 09:35:07 - n8n_manager - ERROR - Error cleaning up resources: 'DatabaseManager' object has no attribute 'close'
+2025-08-05 09:35:07 - n8n_manager - INFO - Application shutdown completed
+2025-08-05 09:35:07 - n8n_manager - INFO - Shutting down application...
+2025-08-05 09:35:07 - n8n_manager - INFO - Initiating application shutdown...
+2025-08-05 09:35:07 - n8n_manager - ERROR - Error cleaning up resources: 'DatabaseManager' object has no attribute 'close'
+2025-08-05 09:35:07 - n8n_manager - INFO - Application shutdown completed
+2025-08-05 09:35:07 - n8n_manager - INFO - Application shutdown completed

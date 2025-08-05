@@ -4,14 +4,32 @@ Handles loading, saving, and validation of application configuration
 """
 
 import os
+import re
 import yaml
+import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Set
 from .logger import get_logger
 
 
 class ConfigManager:
     """Manages application configuration with validation and persistence"""
+    
+    # Define allowed configuration patterns for security
+    SAFE_CONFIG_PATTERNS = {
+        'app.debug': r'^(true|false|1|0|yes|no|on|off)$',
+        'logging.level': r'^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$',
+        'docker.default_image': r'^[a-zA-Z0-9][a-zA-Z0-9._/-]*:[a-zA-Z0-9._-]+$',
+        'docker.default_port_range': r'^\[\s*\d+\s*,\s*\d+\s*\]$',
+        'database.path': r'^[a-zA-Z0-9._/-]+\.db$'
+    }
+    
+    ALLOWED_CONFIG_KEYS: Set[str] = {
+        'app.debug', 'app.name', 'logging.level', 'logging.console_output',
+        'docker.default_image', 'docker.default_port_range', 'docker.network_name',
+        'database.path', 'database.backup_interval', 'ui.theme', 'ui.window_width',
+        'ui.window_height', 'ui.auto_refresh_interval'
+    }
     
     def __init__(self, config_dir: Optional[str] = None):
         self.logger = get_logger()
@@ -45,6 +63,9 @@ class ConfigManager:
                     user_config = yaml.safe_load(f) or {}
                 self._merge_config(self._config, user_config)
                 self.logger.info(f"Loaded user configuration from {self.user_config_path}")
+            
+            # Update from environment variables with validation
+            self.update_from_env()
             
             # Validate configuration
             self._validate_config()
@@ -195,22 +216,56 @@ class ConfigManager:
         return self._config.copy()
     
     def update_from_env(self):
-        """Update configuration from environment variables"""
+        """Update configuration from environment variables with validation"""
         env_mappings = {
             'N8N_MANAGER_DEBUG': 'app.debug',
             'N8N_MANAGER_LOG_LEVEL': 'logging.level',
-            'N8N_MANAGER_DB_PATH': 'database.path',
             'N8N_MANAGER_DOCKER_IMAGE': 'docker.default_image',
+            'N8N_MANAGER_PORT_RANGE': 'docker.default_port_range'
         }
         
         for env_var, config_key in env_mappings.items():
             if env_var in os.environ:
-                value = os.environ[env_var]
-                # Convert string values to appropriate types
-                if config_key.endswith('.debug'):
-                    value = value.lower() in ('true', '1', 'yes', 'on')
-                self.set(config_key, value)
-                self.logger.debug(f"Updated config from env: {config_key} = {value}")
+                raw_value = os.environ[env_var]
+                
+                # Validate configuration key
+                if config_key not in self.ALLOWED_CONFIG_KEYS:
+                    self.logger.warning(f"Ignoring unauthorized config key: {config_key}")
+                    continue
+                
+                # Sanitize and validate value
+                sanitized_value = self._sanitize_config_value(config_key, raw_value)
+                if sanitized_value is not None:
+                    self.set(config_key, sanitized_value)
+                    self.logger.debug(f"Updated config from env: {config_key} = {sanitized_value}")
+                else:
+                    self.logger.warning(f"Invalid value for {config_key}: {raw_value}")
+    
+    def _sanitize_config_value(self, config_key: str, raw_value: str) -> Any:
+        """Sanitize and validate configuration value"""
+        # Remove potentially dangerous characters
+        sanitized = re.sub(r'[^\w\s\-\.\[\],:/]', '', raw_value)
+        
+        # Validate against pattern if defined
+        if config_key in self.SAFE_CONFIG_PATTERNS:
+            pattern = self.SAFE_CONFIG_PATTERNS[config_key]
+            if not re.match(pattern, sanitized, re.IGNORECASE):
+                return None
+        
+        # Type conversion with validation
+        if config_key.endswith('.debug'):
+            return sanitized.lower() in ('true', '1', 'yes', 'on')
+        elif config_key == 'docker.default_port_range':
+            try:
+                port_range = json.loads(sanitized)
+                if (isinstance(port_range, list) and len(port_range) == 2 and
+                    all(isinstance(p, int) and 1024 <= p <= 65535 for p in port_range)):
+                    return port_range
+            except (json.JSONDecodeError, ValueError):
+                pass
+            return None
+        
+        return sanitized
 
 
 # Global configuration instance

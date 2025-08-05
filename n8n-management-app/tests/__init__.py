@@ -1,0 +1,1 @@
+# Test suite for n8n Management App

@@ -1,0 +1,41 @@
+# Default configuration for n8n Management App
+app:
+  name: "n8n Management App"
+  version: "1.0.0"
+  debug: false
+  
+docker:
+  default_image: "n8nio/n8n:latest"
+  default_port_range: [5678, 5700]
+  default_memory_limit: "512m"
+  default_cpu_limit: "0.5"
+  network_name: "n8n_network"
+  
+database:
+  type: "sqlite"
+  path: "data/n8n_manager.db"
+  backup_interval: 3600  # seconds
+  
+logging:
+  level: "INFO"
+  file_path: "data/logs/app.log"
+  max_file_size: "10MB"
+  backup_count: 5
+  console_output: true
+  
+ui:
+  theme: "light"
+  window_width: 1200
+  window_height: 800
+  auto_refresh_interval: 5  # seconds
+  
+instances:
+  default_name_prefix: "n8n-instance"
+  auto_start_on_create: true
+  health_check_interval: 30  # seconds
+  
+backup:
+  enabled: true
+  schedule: "daily"
+  retention_days: 30
+  compression: true

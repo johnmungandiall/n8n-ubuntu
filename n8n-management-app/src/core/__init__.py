@@ -1,0 +1,1 @@
+# Core modules for n8n management functionality

@@ -22,6 +22,11 @@ class ConfigManager:
         self._config = {}
         self._load_configuration()
     
+    @property
+    def config(self) -> Dict[str, Any]:
+        """Get the configuration dictionary"""
+        return self._config.copy()
+    
     def _load_configuration(self):
         """Load configuration from default and user config files"""
         try:

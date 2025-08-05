@@ -1,0 +1,135 @@
+{
+  "unit_tests": {
+    "status": "failed",
+    "passed": 1,
+    "failed": 2,
+    "total": 3,
+    "tests": [
+      [
+        "ConfigManager",
+        false,
+        "Configuration test failed: 'ConfigManager' object has no attribute 'config'"
+      ],
+      [
+        "MainApplication",
+        true,
+        "Main application structure tests passed"
+      ],
+      [
+        "Database",
+        false,
+        "Database test failed: cannot import name 'Database' from 'core.database' (/media/ubuntu-john/John/Development/Models/n8n-management-app/src/core/database.py)"
+      ]
+    ],
+    "duration": 0.5
+  },
+  "integration_tests": {
+    "status": "passed",
+    "passed": 2,
+    "failed": 0,
+    "total": 2,
+    "tests": [
+      [
+        "Config-Database Integration",
+        true,
+        "Integration successful"
+      ],
+      [
+        "Application Integration",
+        true,
+        "App component integration successful"
+      ]
+    ],
+    "duration": 0.3
+  },
+  "performance_tests": {
+    "status": "failed",
+    "passed": 1,
+    "failed": 1,
+    "total": 2,
+    "tests": [
+      [
+        "Config Performance",
+        false,
+        "Performance test failed: 'ConfigManager' object has no attribute 'load_config'"
+      ],
+      [
+        "Memory Usage",
+        true,
+        "Memory increase: 0.0MB"
+      ]
+    ],
+    "duration": 0.8
+  },
+  "security_tests": {
+    "status": "failed",
+    "passed": 1,
+    "failed": 1,
+    "total": 2,
+    "tests": [
+      [
+        "Config Security",
+        false,
+        "Config security test failed: 'ConfigManager' object has no attribute 'save_config'"
+      ],
+      [
+        "Input Validation",
+        true,
+        "Input validation tests completed"
+      ]
+    ],
+    "duration": 0.4
+  },
+  "gui_tests": {
+    "status": "failed",
+    "passed": 1,
+    "failed": 1,
+    "total": 2,
+    "tests": [
+      [
+        "GUI Components",
+        true,
+        "Basic GUI components functional"
+      ],
+      [
+        "Theme System",
+        false,
+        "Theme test failed: ModernTheme.__init__() missing 1 required positional argument: 'root'"
+      ]
+    ],
+    "duration": 0.2
+  },
+  "cli_tests": {
+    "status": "passed",
+    "passed": 2,
+    "failed": 0,
+    "total": 2,
+    "tests": [
+      [
+        "CLI Parsing",
+        true,
+        "CLI argument parsing functional"
+      ],
+      [
+        "CLI Structure",
+        true,
+        "CLI application structure valid"
+      ]
+    ],
+    "duration": 0.1
+  },
+  "summary": {
+    "total_tests": 13,
+    "total_passed": 8,
+    "total_failed": 5,
+    "success_rate": 61.53846153846154,
+    "categories_passed": 2,
+    "total_categories": 6,
+    "category_success_rate": 33.33333333333333,
+    "total_duration": 2.3000000000000003,
+    "wall_clock_time": 0.649301,
+    "start_time": "2025-08-05T08:28:22.162022",
+    "end_time": "2025-08-05T08:28:22.811323",
+    "overall_status": "FAILED"
+  }
+}

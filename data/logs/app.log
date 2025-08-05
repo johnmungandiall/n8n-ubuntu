@@ -109,3 +109,24 @@
 2025-08-05 08:07:33 - n8n_manager - INFO - Started container Johnx
 2025-08-05 08:07:35 - n8n_manager - INFO - Started instance 'Johnx'
 2025-08-05 08:07:35 - n8n_manager - INFO - Successfully created n8n instance 'Johnx' (ID: 4)
+2025-08-05 08:09:55 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 08:09:55 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 08:09:55 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 08:09:55 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 08:09:55 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 08:09:55 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 08:09:55 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 08:09:55 - n8n_manager - INFO - Starting GUI application
+2025-08-05 08:09:56 - n8n_manager - INFO - Starting simple modern GUI
+2025-08-05 08:31:35 - n8n_manager - INFO - Starting n8n Management App...
+2025-08-05 08:31:35 - n8n_manager - INFO - Loaded default configuration from /media/ubuntu-john/John/Development/Models/n8n-management-app/config/default_config.yaml
+2025-08-05 08:31:35 - n8n_manager - INFO - Configuration validation passed
+2025-08-05 08:31:35 - n8n_manager - INFO - Database initialized at data/n8n_manager.db
+2025-08-05 08:31:35 - n8n_manager - INFO - Successfully connected to Docker daemon
+2025-08-05 08:31:35 - n8n_manager - INFO - Connected to Docker (version: 28.3.3)
+2025-08-05 08:31:35 - n8n_manager - INFO - Application initialization completed successfully
+2025-08-05 08:31:35 - n8n_manager - INFO - Starting GUI application
+2025-08-05 08:31:35 - n8n_manager - INFO - Starting simple modern GUI
+2025-08-05 08:32:14 - n8n_manager - INFO - Closing application
+2025-08-05 08:32:14 - n8n_manager - INFO - Shutting down application...
+2025-08-05 08:32:14 - n8n_manager - ERROR - Error during shutdown: can't invoke "destroy" command: application has been destroyed
